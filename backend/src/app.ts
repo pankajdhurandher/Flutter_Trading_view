@@ -11,7 +11,32 @@ const __dirname = path.dirname(__filename);
 export function createApp() {
   const app = express();
 
-  app.use(cors());
+  // CORS configuration - allow specific frontend in production, be permissive in development
+  const allowedFrontend = process.env.FRONTEND_ORIGIN;
+  const corsOptions: cors.CorsOptions = {
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (process.env.NODE_ENV === 'production' && allowedFrontend) {
+        return origin === allowedFrontend ? callback(null, true) : callback(new Error('Not allowed by CORS'));
+      }
+      return callback(null, true);
+    },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+    credentials: true,
+    optionsSuccessStatus: 204,
+  };
+
+  app.use(cors(corsOptions));
+  app.options('*', cors(corsOptions));
+
+  // Request logger for debugging network/API issues
+  app.use((req, _res, next) => {
+    // eslint-disable-next-line no-console
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} origin=${req.headers.origin}`);
+    next();
+  });
+
   app.use(express.json());
 
   app.use('/api', candleRouter);
@@ -31,6 +56,9 @@ export function createApp() {
       }
     });
   });
+
+  // Simple health check
+  app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
   app.use(errorHandler);
 

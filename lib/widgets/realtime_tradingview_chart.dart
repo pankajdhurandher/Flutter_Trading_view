@@ -15,7 +15,7 @@ class RealtimeTradingViewChart extends ConsumerStatefulWidget {
     Key? key,
     required this.symbol,
     required this.interval,
-    this.historyLimit = 300,
+    this.historyLimit = 250,
   }) : super(key: key);
 
 

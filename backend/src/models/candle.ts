@@ -24,4 +24,6 @@ export interface SymbolGenerationState {
   current1mCandle: Candle;
   current5mCandle: Candle;
   current5mCount: number;
+  // timestamp (ms) of the last generated 1m candle to ensure uniqueness
+  lastGeneratedTimestamp?: number;
 }

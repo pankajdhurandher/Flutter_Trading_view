@@ -18,7 +18,7 @@ class CandlesRepositoryImpl implements CandlesRepository {
   CandlesRepositoryImpl(this._api, this._ws);
 
   @override
-  Future<List<CandleModel>> fetchHistorical({required String symbol, required String interval, int limit = 100}) async {
+  Future<List<CandleModel>> fetchHistorical({required String symbol, required String interval, int limit = 200}) async {
     return _api.fetchCandles(symbol: symbol, interval: interval, limit: limit);
   }
 

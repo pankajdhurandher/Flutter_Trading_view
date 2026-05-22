@@ -81,6 +81,8 @@ export class CandleGeneratorService {
     this.symbolStates.set(symbol, {
       symbol,
       lastClose: initialPrice,
+      // track last generated minute timestamp to ensure uniqueness
+      lastGeneratedTimestamp: initialCandle.timestamp,
       config,
       current1mCandle: initialCandle,
       current5mCandle: initial5m,
@@ -107,12 +109,17 @@ export class CandleGeneratorService {
     if (!state) {
       throw new Error(`Symbol not registered: ${symbol}`);
     }
-    const now = normalizeTimestampToMinute(timestamp);
+    let now = normalizeTimestampToMinute(timestamp);
+    // Ensure timestamps strictly increase per symbol (avoid duplicates when callers pass same timestamp)
+    if (typeof (state as any).lastGeneratedTimestamp === 'number' && now <= (state as any).lastGeneratedTimestamp) {
+      now = (state as any).lastGeneratedTimestamp + 60000;
+    }
     const nextCandleData = computePriceMovement(state.lastClose, state.config.volatility);
     const volume = estimateVolume(state.config.averageVolume);
     const finished1m = createBaseCandle(symbol, '1m', now, nextCandleData.open, nextCandleData.close, nextCandleData.high, nextCandleData.low, volume);
     state.lastClose = finished1m.close;
     state.current1mCandle = finished1m;
+    (state as any).lastGeneratedTimestamp = finished1m.timestamp;
     this.update5mAggregation(state);
     return finished1m;
   }

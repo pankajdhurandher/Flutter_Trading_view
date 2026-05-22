@@ -127,7 +127,8 @@ class _TradingViewChartState extends State<TradingViewChart> {
             try {
               const candles = JSON.parse(candlesJson);
               candleSeries.setData(candles);
-              chart.timeScale().fitContent();
+              // Auto-fit chart to show all candles with proper spacing
+              setTimeout(() => chart.timeScale().fitContent(), 100);
             } catch(e) { console.error('setData error', e); }
           },
           updateCandle: function(candleJson) {

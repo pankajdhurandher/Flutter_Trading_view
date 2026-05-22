@@ -22,7 +22,12 @@ class WebSocketService {
   Future<void> connect() async {
     if (_connected) return;
     try {
-      _channel = WebSocketChannel.connect(Uri.parse(url));
+      // If running from a secure origin (https) convert ws -> wss
+      var uri = Uri.parse(url);
+      if (Uri.base.scheme == 'https' && uri.scheme == 'ws') {
+        uri = uri.replace(scheme: 'wss');
+      }
+      _channel = WebSocketChannel.connect(Uri.parse(uri.toString()));
       _connected = true;
       _reconnectAttempt = 0;
 
@@ -59,20 +64,24 @@ class WebSocketService {
     }
   }
 
-  void sendSubscribe(String symbol, String interval) {
-    _ensureConnected();
+  Future<void> sendSubscribe(String symbol, String interval) async {
+    await _ensureConnected();
     final msg = WsClientMessage(event: 'subscribe', symbol: symbol.toUpperCase(), interval: interval);
     _channel?.sink.add(jsonEncode(msg.toJson()));
   }
 
-  void sendUnsubscribe(String symbol, String interval) {
-    _ensureConnected();
+  Future<void> sendUnsubscribe(String symbol, String interval) async {
+    await _ensureConnected();
     final msg = WsClientMessage(event: 'unsubscribe', symbol: symbol.toUpperCase(), interval: interval);
     _channel?.sink.add(jsonEncode(msg.toJson()));
   }
 
-  void _ensureConnected() {
-    if (!_connected) throw AppException('WebSocket not connected');
+  Future<void> _ensureConnected() async {
+    if (_connected) return;
+    await connect();
+    if (!_connected) {
+      throw AppException('WebSocket not connected');
+    }
   }
 
   void _handleDisconnect(Object? err) {
@@ -84,7 +93,11 @@ class WebSocketService {
 
   void _scheduleReconnect() {
     _reconnectAttempt += 1;
-    final delay = Duration(milliseconds: (1000 * (_reconnectAttempt * _reconnectAttempt)).clamp(1000, 30000));
+    // quadratic backoff with jitter, capped at 30s
+    final base = 1000 * (_reconnectAttempt * _reconnectAttempt);
+    final capped = base > 30000 ? 30000 : base;
+    final jitter = (DateTime.now().millisecondsSinceEpoch % 500);
+    final delay = Duration(milliseconds: (1000 + capped + jitter).clamp(1000, 30000));
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(delay, () {
       connect();

@@ -12,7 +12,7 @@ export function createCandleController(historyService: CandleHistoryService): Ca
       try {
         const symbol = String(req.query.symbol).toUpperCase();
         const interval = req.query.interval as CandleInterval;
-        const limit = Number(req.query.limit ?? 100);
+        const limit = Number(req.query.limit ?? 200);
 
         const candles = historyService.getCandles(symbol, interval, limit);
 

@@ -31,8 +31,12 @@ class _ChartScreenState extends ConsumerState<ChartScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            const Expanded(
-              child: RealtimeTradingViewChart(symbol: 'BTCUSDT', interval: '1m'),
+            Expanded(
+              child: RealtimeTradingViewChart(
+                symbol: 'BTCUSDT',
+                interval: _interval,
+                historyLimit: 250,
+              ),
             ),
           ],
         ),

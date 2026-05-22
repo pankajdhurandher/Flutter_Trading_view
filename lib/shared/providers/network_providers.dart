@@ -5,16 +5,26 @@ import '../../core/network/api_service.dart';
 import '../../core/network/websocket_service.dart';
 import '../../core/repositories/candles_repository.dart';
 
+const String _apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://127.0.0.1:4000');
+const String _wsBaseUrl = String.fromEnvironment('WS_BASE_URL', defaultValue: 'ws://127.0.0.1:4000/ws');
+
 final dioProvider = Provider<Dio>((ref) {
-  return Dio(BaseOptions(baseUrl: 'http://127.0.0.1:4000'));
+  return Dio(BaseOptions(
+    baseUrl: _apiBaseUrl,
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 15),
+    sendTimeout: const Duration(seconds: 10),
+    responseType: ResponseType.json,
+    headers: {'Accept': 'application/json'},
+  ));
 });
 
 final apiServiceProvider = Provider<ApiService>((ref) {
-  return ApiService(dio: ref.read(dioProvider));
+  return ApiService(dio: ref.read(dioProvider), baseUrl: _apiBaseUrl);
 });
 
 final websocketServiceProvider = Provider<WebSocketService>((ref) {
-  final ws = WebSocketService(url: 'ws://127.0.0.1:4000/ws');
+  final ws = WebSocketService(url: _wsBaseUrl);
   ref.onDispose(() => ws.dispose());
   return ws;
 });
@@ -51,17 +61,21 @@ class CandleRequestParams {
 
 final liveCandleStreamProvider = StreamProvider.family<CandleModel, CandleRequestParams>((ref, params) {
   final repo = ref.read(candlesRepositoryProvider);
-  // ensure websocket is connected
-  repo.connectWebSocket();
-
   final stream = repo.liveCandles().where((c) => c.symbol.toUpperCase() == params.symbol.toUpperCase() && c.interval == params.interval);
+
+  Future.microtask(() async {
+    try {
+      await repo.connectWebSocket();
+      await repo.subscribe(symbol: params.symbol, interval: params.interval);
+    } catch (_) {
+      // Connection and subscription failures will be retried by the websocket service.
+    }
+  });
 
   ref.onDispose(() {
     repo.unsubscribe(symbol: params.symbol, interval: params.interval);
+    repo.disconnectWebSocket();
   });
-
-  // start subscription for this symbol/interval
-  repo.subscribe(symbol: params.symbol, interval: params.interval);
 
   return stream;
 });

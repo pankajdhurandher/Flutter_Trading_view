@@ -39,7 +39,10 @@ export class RealtimeWebSocketServer {
     this.server.clients.forEach((client) => client.close());
   }
 
-  private handleConnection(ws: WebSocket): void {
+  private handleConnection(ws: WebSocket, req?: import('http').IncomingMessage): void {
+    const origin = req?.headers.origin ?? 'unknown';
+    // eslint-disable-next-line no-console
+    console.log(`[${new Date().toISOString()}] WebSocket connection from origin=${origin} remote=${req?.socket.remoteAddress}`);
     ws.on('message', (raw) => this.handleMessage(ws, raw.toString()));
     ws.on('close', () => this.subscriptions.cleanupConnection(ws));
     ws.on('error', () => this.subscriptions.cleanupConnection(ws));

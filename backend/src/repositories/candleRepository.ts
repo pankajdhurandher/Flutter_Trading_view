@@ -7,6 +7,8 @@ interface CandleHistory {
   '5m': Candle[];
 }
 
+const HISTORICAL_CANDLES_TARGET = 250; // Generate 250 historical candles per interval for full chart display
+
 export class CandleRepository {
   private readonly history = new Map<string, CandleHistory>();
 
@@ -34,10 +36,13 @@ export class CandleRepository {
     // 2. Register symbol in the generator
     this.generator.registerSymbol(symbol, 100.0);
 
-    // 3. Pre-populate 150 candles ending at the current minute
+    // 3. Pre-populate 250+ candles ending at the current minute for rich historical data
     const now = normalizeTimestampToMinute(Date.now());
-    const limit = 150;
+    const limit = HISTORICAL_CANDLES_TARGET;
     const startTimestamp = now - limit * 60000;
+
+    // eslint-disable-next-line no-console
+    console.log(`Generating ${limit} historical candles for ${symbol} starting from ${new Date(startTimestamp).toISOString()}`);
 
     for (let i = 0; i < limit; i++) {
       const ts = startTimestamp + i * 60000;
@@ -45,11 +50,20 @@ export class CandleRepository {
       historyObj['1m'].push(candle);
       this.store5mFrom1m(symbol, candle);
     }
+
+    // eslint-disable-next-line no-console
+    console.log(`Initialized ${symbol}: ${historyObj['1m'].length} 1m candles, ${historyObj['5m'].length} 5m candles`);
   }
 
   private getHistory(symbol: string, interval: CandleInterval, limit: number): Candle[] {
     const candleArray = this.history.get(symbol)?.[interval] ?? [];
-    return candleArray.slice(-limit);
+    const result = candleArray.slice(-limit);
+    // Log for debugging
+    if (interval === '1m') {
+      // eslint-disable-next-line no-console
+      console.log(`Returning ${result.length}/${candleArray.length} ${interval} candles for ${symbol} (requested limit: ${limit})`);
+    }
+    return result;
   }
 
   private updateHistoryToCurrent(symbol: string): void {
@@ -70,7 +84,7 @@ export class CandleRepository {
       nextTimestamp += 60000;
     }
 
-    // Cap at 500 to prevent memory leak
+    // Cap at 500 to prevent memory leak, but keep at least 250 historical candles
     if (candleArray.length > 500) {
       historyObj['1m'] = candleArray.slice(-500);
     }
