@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TradingView Lightweight Chart</title>
+  <style>
+    html,body,#container{height:100%;width:100%;margin:0;padding:0;background:#0f1720;color:#e6eef8}
+    #container{display:flex}
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+
+  <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+  <script>
+    (function(){
+      // Lightweight Charts setup
+      const container = document.getElementById('container');
+      const chart = LightweightCharts.createChart(container, {
+        layout: { background: { color: '#0f1720' }, textColor: '#E6EEF8' },
+        rightPriceScale: { visible: true },
+        timeScale: { timeVisible: true, secondsVisible: true },
+        localization: { timeFormatter: (time) => new Date(time * 1000).toLocaleString() },
+        handleScroll: { mouseWheel: true, pressedMouseMove: true },
+        handleScale: { axisPressedMouseMove: true, axisDoubleClickReset: true }
+      });
+
+      const candleSeries = chart.addCandlestickSeries({
+        upColor: '#26a69a',
+        downColor: '#ef5350',
+        borderVisible: false,
+        wickUpColor: '#26a69a',
+        wickDownColor: '#ef5350'
+      });
+
+      // Exposed bridge for Flutter to call
+      window.TradingViewBridge = {
+        setData: function(candlesJson) {
+          try {
+            const candles = JSON.parse(candlesJson);
+            candleSeries.setData(candles);
+          } catch(e) { console.error('setData error', e); }
+        },
+        updateCandle: function(candleJson) {
+          try {
+            const c = JSON.parse(candleJson);
+            candleSeries.update(c);
+          } catch(e){ console.error('update error', e); }
+        },
+        setTheme: function(theme) {
+          if (theme === 'dark') {
+            chart.applyOptions({ layout: { background: { color: '#0f1720' }, textColor: '#E6EEF8' } });
+          } else {
+            chart.applyOptions({ layout: { background: { color: '#FFFFFF' }, textColor: '#000000' } });
+          }
+        }
+      };
+
+      // Listen for host messages (used by iframe postMessage)
+      window.addEventListener('message', (ev) => {
+        const data = ev.data;
+        if (!data || !data.type) return;
+        if (data.type === 'setData') {
+          window.TradingViewBridge.setData(JSON.stringify(data.payload));
+        } else if (data.type === 'update') {
+          window.TradingViewBridge.updateCandle(JSON.stringify(data.payload));
+        } else if (data.type === 'theme') {
+          window.TradingViewBridge.setTheme(data.payload);
+        }
+      }, false);
+
+      // notify parent ready
+      function notifyReady(){
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: 'tv_ready' }, '*');
+        }
+      }
+      if (document.readyState === 'complete' || document.readyState === 'interactive') notifyReady();
+      else window.addEventListener('DOMContentLoaded', notifyReady);
+    })();
+  </script>
+</body>
+</html>
