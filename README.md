@@ -1,6 +1,6 @@
 # Flutter Trading View App
 
-A real-time trading chart application built with Flutter and a Node.js backend.  
+A real-time trading chart application built with Flutter and a Node.js backend.
 The project integrates TradingView charts inside a Flutter application using WebView and supports live market updates through WebSockets.
 
 ---
